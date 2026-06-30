@@ -128,6 +128,54 @@ gh secret set MY_SECRET_NAME --body "secret-value" --repo <owner>/<repo>
 
 REST APIで直接行う場合はlibsodiumでの暗号化が必須になるため、特別な理由がない限り`gh secret set`を使うこと。
 
+## Projects (v2) GraphQL操作
+
+Projects v2はREST APIではなくGraphQL APIで操作する。`gh project`でカバーできない細かい操作(カスタムフィールド値の更新等)向け。
+
+### Project IDとフィールドIDの取得
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/graphql \
+  -d '{"query":"query{ user(login:\"<owner>\"){ projectV2(number: <project番号>){ id fields(first:20){ nodes{ ... on ProjectV2FieldCommon { id name } } } } } }"}'
+```
+Organization配下のプロジェクトの場合は `user(login:...)` を `organization(login:...)` に置き換える。
+
+### アイテムのステータス(単一選択フィールド)を更新
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/graphql \
+  -d '{
+    "query":"mutation($project:ID!, $item:ID!, $field:ID!, $value:String!){ updateProjectV2ItemFieldValue(input:{projectId:$project, itemId:$item, fieldId:$field, value:{singleSelectOptionId:$value}}){ projectV2Item{ id } } }",
+    "variables":{"project":"<PROJECT_ID>","item":"<ITEM_ID>","field":"<FIELD_ID>","value":"<OPTION_ID>"}
+  }'
+```
+各IDは事前にfields/itemsクエリで取得する必要がある。`gh project item-list <番号> --owner <owner> --format json` でアイテムIDは簡単に取得できる。
+
+## プロフィール・フォロワー・メールアドレス・プランの読み取り(読み取り専用)
+
+```bash
+# 自分のプロフィール全体(login, name, company, location, bio, public_repos, followers, following, plan等)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user
+
+# 他ユーザーの公開プロフィール(認証不要な情報のみ)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/users/<username>
+
+# フォロワー / フォロー中
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/followers
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/following
+
+# メールアドレス一覧(primary/verifiedフラグ付き、Email addresses: Read-only権限が必要)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/emails
+```
+
+`/user`のレスポンス中の`plan`オブジェクト(`name`: free/pro/team等、`space`: ストレージ容量、`private_repos`: プライベートリポジトリ上限)でプラン情報を確認できる。
+
+403が返る場合は対応する権限(`Followers: Read-only`、`Email addresses: Read-only`等)がトークンに付与されていない可能性が高い。
+
 ## コラボレーター招待
 
 ```bash

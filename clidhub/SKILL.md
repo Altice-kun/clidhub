@@ -1,6 +1,6 @@
 ---
 name: clidhub
-description: GitHubリポジトリの作成・構築・設定・編集・公開をClaudeが代行するスキル。リポジトリ作成、ファイルのコミット/push、ブランチ操作、プルリクエスト、Issues、GitHub Actions(CI/CD)設定、GitHub Pagesでの公開など、GitHubに関するあらゆる操作が必要な場面で必ず使用すること。「GitHubに上げて」「リポジトリ作って」「PR出して」「Actionsを設定して」「公開して」「リポジトリを編集して」など、GitHub操作を示唆する依頼があれば、明示的に「Clidhubを使って」と言われていなくても積極的にこのスキルを参照する。
+description: GitHubリポジトリの作成・構築・設定・編集・公開をClaudeが代行するスキル。リポジトリ作成、ファイルのコミット/push、ブランチ操作、プルリクエスト、Issues、GitHub Actions(CI/CD)設定、GitHub Pagesでの公開、Projects(v2)のボード操作、プロフィール/フォロワー/メールアドレス/プランの読み取りなど、GitHubに関するあらゆる操作が必要な場面で必ず使用すること。「GitHubに上げて」「リポジトリ作って」「PR出して」「Actionsを設定して」「公開して」「リポジトリを編集して」「プロジェクトボードを作って」「自分のGitHubプロフィールを見せて」など、GitHub操作を示唆する依頼があれば、明示的に「Clidhubを使って」と言われていなくても積極的にこのスキルを参照する。
 ---
 
 # Clidhub
@@ -29,8 +29,10 @@ Clidhubは**永続的にトークンを保存しない**。GitHubのPersonal Acc
      - `Issues: Read and write`(Issue操作)
      - `Actions: Read and write`(Actions実行/確認)
      - `Pages: Read and write`(GitHub Pages公開)
+     - `Projects: Read and write`(GitHub Projects v2のボード操作用)
      - `Metadata: Read-only`(自動で付与される基本権限)
      - **新規リポジトリを作成させたい場合は追加で `Account permissions` → `Administration: Read and write` が必須**(これが無いと`gh repo create`が`Resource not accessible by personal access token`エラーで失敗する)。既存リポジトリの操作のみなら不要。
+     - **プロフィール/フォロワー/メールアドレス/プランなどユーザー情報を読み取らせたい場合は追加で `Account permissions` → `Email addresses: Read-only` および `Followers: Read-only`、`Plan: Read-only` を付与する**(Fine-grained PATのAccount permissions欄で個別に有効化する)。
    
    実行中に権限不足のエラーが出たら、上記のどの権限が足りないかを具体的に伝え、ユーザーにトークン設定の見直しを依頼すること。
 2. ユーザーがPATを提示したら、bashで環境変数として設定する(チャット上にその後トークンの値を繰り返し表示しない):
@@ -82,6 +84,8 @@ Clidhubは `gh` CLI と GitHub REST API (`curl`) を**使い分ける**。判断
 | Actions実行状況確認 | `gh run list` / `gh run view` | gh CLIが見やすい |
 | リポジトリ設定変更(可視性、ブランチ保護等) | REST API (`PATCH /repos/{owner}/{repo}` 等) | gh CLIでカバーされない細かい設定が多い |
 | GitHub Pages公開設定 | REST API (`POST /repos/{owner}/{repo}/pages`) | gh CLIに専用コマンドがない |
+| Projects (v2) のボード/アイテム操作 | `gh project` (beta) または GraphQL API | classic Projectsは廃止予定のためv2前提 |
+| プロフィール/フォロワー/メールアドレス/プランの読み取り | REST API (`GET /user`, `/user/emails`, `/user/followers` 等) | 読み取り専用、`gh api`でも可 |
 
 詳細なAPIエンドポイントやコマンド例は `references/api_reference.md` を参照。
 
@@ -204,6 +208,46 @@ curl -s -X PUT \
 
 `branch_protection.json`の例は`references/api_reference.md`参照。
 
+### 3.8 Projects (v2) のボード操作
+
+GitHub Projects v2はGraphQL APIベース。`gh project`(beta機能、要`gh extension install`不要・本体に同梱)で簡易操作できる:
+
+```bash
+# ユーザー/Organization配下のProject一覧
+gh project list --owner <owner>
+
+# Project作成
+gh project create --owner <owner> --title "プロジェクト名"
+
+# Issueをプロジェクトに追加
+gh project item-add <project番号> --owner <owner> --url https://github.com/<owner>/<repo>/issues/<番号>
+
+# フィールド一覧確認(ステータス変更等に必要なfield idを調べる)
+gh project field-list <project番号> --owner <owner>
+```
+
+より細かい操作(カスタムフィールドの値更新、ビューの並び替えなど)はGraphQL APIが必要。サンプルは`references/api_reference.md`の「Projects (v2) GraphQL操作」を参照。
+
+### 3.9 プロフィール・フォロワー・メールアドレス・プランの読み取り
+
+すべて読み取り専用。書き込み操作は行わない。
+
+```bash
+# 基本プロフィール(ユーザー名、bio、会社、所在地、プラン情報を含む)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user
+
+# フォロワー一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/followers
+
+# フォロー中のユーザー一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/following
+
+# メールアドレス一覧(プライマリ/検証済みフラグ付き)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/emails
+```
+
+`/user`レスポンス中の`plan`フィールド(`name`, `space`, `private_repos`等)でプラン情報が確認できる。メールアドレス取得には`Email addresses: Read-only`権限、フォロワー取得には`Followers: Read-only`権限が必要(無いと403が返るので、その場合は権限不足である旨をユーザーに伝える)。
+
 ## 4. 作業ディレクトリの方針
 
 - リポジトリのcloneやファイル構築は `/home/claude/work_<repo-name>/` 配下で行う(ユーザーには見えないスクラッチ領域)。
@@ -216,8 +260,9 @@ curl -s -X PUT \
 - 破壊的操作(リポジトリ削除、force push、ブランチ保護解除、可視性をpublicに変更など)は実行前に必ずユーザーに確認する。
 - 操作完了後は、関連するURL(リポジトリURL、PR URL、公開URLなど)を明示してユーザーがすぐ開けるようにする。
 - エラーが出た場合、トークンのスコープ不足・リポジトリ名の重複・権限不足などよくある原因をまず疑い、ユーザーに分かりやすく伝える。
+- プロフィールやメールアドレスなど個人情報の読み取り結果をユーザーに提示する際は、本人が今このセッションで明示的に求めた範囲に留め、不必要に詳細を晒さない。
 
 ## 6. 参考資料
 
-- `references/api_reference.md` — REST APIエンドポイント一覧と curl サンプル(単一ファイル編集、ブランチ保護、Pages設定など gh CLIでカバーしきれない操作)
+- `references/api_reference.md` — REST APIエンドポイント一覧と curl サンプル(単一ファイル編集、ブランチ保護、Pages設定、Projects v2 GraphQL、ユーザー情報取得など gh CLIでカバーしきれない操作)
 - `references/actions_templates.md` — GitHub Actions workflow のテンプレート集(Node.js、Python、静的サイトデプロイ等)
