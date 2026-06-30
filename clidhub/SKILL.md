@@ -1,6 +1,6 @@
 ---
 name: clidhub
-description: GitHubリポジトリの作成・構築・設定・編集・公開をClaudeが代行するスキル。リポジトリ作成、ファイルのコミット/push、ブランチ操作、プルリクエスト、Issues、GitHub Actions(CI/CD)設定、GitHub Pagesでの公開、Projects(v2)のボード操作、プロフィール/フォロワー/メールアドレス/プランの読み取りなど、GitHubに関するあらゆる操作が必要な場面で必ず使用すること。「GitHubに上げて」「リポジトリ作って」「PR出して」「Actionsを設定して」「公開して」「リポジトリを編集して」「プロジェクトボードを作って」「自分のGitHubプロフィールを見せて」など、GitHub操作を示唆する依頼があれば、明示的に「Clidhubを使って」と言われていなくても積極的にこのスキルを参照する。
+description: GitHubリポジトリの作成・構築・設定・編集・公開をClaudeが代行するスキル。リポジトリ作成、ファイルのコミット/push、ブランチ操作、プルリクエスト、Issues、GitHub Actions(CI/CD)設定、GitHub Pagesでの公開、Projects(v2)のボード操作、プロフィール/フォロワー/メールアドレス/プランの読み取り、Gistsの読み取りなど、GitHubに関するあらゆる操作が必要な場面で必ず使用すること。「GitHubに上げて」「リポジトリ作って」「PR出して」「Actionsを設定して」「公開して」「リポジトリを編集して」「プロジェクトボードを作って」「自分のGitHubプロフィールを見せて」「Gistを見せて」など、GitHub操作を示唆する依頼があれば、明示的に「Clidhubを使って」と言われていなくても積極的にこのスキルを参照する。
 ---
 
 # Clidhub
@@ -86,6 +86,7 @@ Clidhubは `gh` CLI と GitHub REST API (`curl`) を**使い分ける**。判断
 | GitHub Pages公開設定 | REST API (`POST /repos/{owner}/{repo}/pages`) | gh CLIに専用コマンドがない |
 | Projects (v2) のボード/アイテム操作 | `gh project` (beta) または GraphQL API | classic Projectsは廃止予定のためv2前提 |
 | プロフィール/フォロワー/メールアドレス/プランの読み取り | REST API (`GET /user`, `/user/emails`, `/user/followers` 等) | 読み取り専用、`gh api`でも可 |
+| Gistsの読み取り | `gh gist list` / `gh gist view` または REST API (`GET /gists` 等) | 読み取り専用 |
 
 詳細なAPIエンドポイントやコマンド例は `references/api_reference.md` を参照。
 
@@ -247,6 +248,26 @@ curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/ema
 ```
 
 `/user`レスポンス中の`plan`フィールド(`name`, `space`, `private_repos`等)でプラン情報が確認できる。メールアドレス取得には`Email addresses: Read-only`権限、フォロワー取得には`Followers: Read-only`権限が必要(無いと403が返るので、その場合は権限不足である旨をユーザーに伝える)。
+
+### 3.10 Gistsの読み取り
+
+すべて読み取り専用。Gistsは追加のFine-grained PAT権限が無くても認証さえ通っていれば読み取れることを確認済み(`Metadata: Read-only`のみで動作)。
+
+```bash
+# 自分のGist一覧
+gh gist list
+
+# 特定ユーザーの公開Gist一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/users/<username>/gists
+
+# Gistの中身を見る
+gh gist view <gist-id>
+# またはREST API
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists/<gist-id>
+
+# 公開Gistの新着一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists/public
+```
 
 ## 4. 作業ディレクトリの方針
 

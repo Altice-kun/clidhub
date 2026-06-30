@@ -176,6 +176,30 @@ curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user/ema
 
 403が返る場合は対応する権限(`Followers: Read-only`、`Email addresses: Read-only`等)がトークンに付与されていない可能性が高い。
 
+## Gistsの読み取り(読み取り専用)
+
+```bash
+# 自分のGist一覧(gh CLI)
+gh gist list
+
+# 自分のGist一覧(REST API)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists
+
+# 特定ユーザーの公開Gist一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/users/<username>/gists
+
+# 個別Gistの中身(ファイル内容含む)
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists/<gist-id>
+
+# 公開Gistの新着一覧
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists/public
+
+# Gistのコミット履歴
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/gists/<gist-id>/commits
+```
+
+Gist読み取りはFine-grained PATの個別スコープが存在せず、基本的な`Metadata: Read-only`権限のみで動作することを確認済み。
+
 ## コラボレーター招待
 
 ```bash
